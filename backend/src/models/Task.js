@@ -89,6 +89,16 @@ const taskSchema = new mongoose.Schema(
     },
 
     /**
+     * category — Optional category tag for filtering.
+     * Trimmed, max 50 chars.
+     */
+    category: {
+      type: String,
+      trim: true,
+      maxlength: [50, 'Category cannot exceed 50 characters'],
+    },
+
+    /**
      * userId — The Firebase `uid` of the owning user.
      * Indexed for fast per-user queries (FR-013). Never exposed without a matching uid check.
      */

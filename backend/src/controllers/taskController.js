@@ -82,7 +82,7 @@ const convertTaskDatesToIST = (task) => {
  */
 const createTask = async (req, res, next) => {
   try {
-    const { title, description, dateTime, deadline, priority } = req.body;
+    const { title, description, dateTime, deadline, priority, category } = req.body;
 
     // Validate required fields explicitly for clear client-facing error messages
     if (!title || !dateTime || !deadline || !priority) {
@@ -99,6 +99,7 @@ const createTask = async (req, res, next) => {
       dateTime,
       deadline,
       priority,
+      category,
       // status defaults to 'pending' via schema — not set by client (FR-005)
       userId: req.user.uid, // Sourced from verified token only
     });

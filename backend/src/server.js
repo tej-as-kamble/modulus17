@@ -23,6 +23,9 @@ const express = require('express');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const { initFirebaseAdmin } = require('./config/firebase');
+const userRoutes = require('./routes/userRoutes');
+const taskRoutes = require('./routes/taskRoutes');
+const { errorHandler } = require('./middlewares/errorMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -54,6 +57,24 @@ app.get('/health', (_req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
+// =============================================================================
+// API Routes
+// =============================================================================
+
+// User profile synchronization routes (POST /api/users/sync)
+app.use('/api/users', userRoutes);
+
+// Task CRUD routes (POST, GET /api/tasks | PATCH, DELETE /api/tasks/:id)
+app.use('/api/tasks', taskRoutes);
+
+// =============================================================================
+// Global Error Handler (must be LAST middleware registered)
+// =============================================================================
+
+// Catches any error passed via next(error) from routes or middlewares
+// and returns a standardized { success: false, message } JSON response (FR-011).
+app.use(errorHandler);
 
 // =============================================================================
 // Application Bootstrap

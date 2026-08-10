@@ -24,6 +24,16 @@ export type TaskPriority = 'Low' | 'Medium' | 'High';
 export type TaskStatus = 'pending' | 'completed';
 
 /**
+ * TaskCategory — The allowed category classifications for a task. (FR-001)
+ * Maps exactly to the backend Task schema category enum.
+ *
+ * 'None' is the default: tasks without an explicit user-assigned category.
+ * Filter chips in the Dashboard Bottom Sheet exclude 'None' — tasks with
+ * this category are only visible under the implicit 'All' state (FR-002, FR-003).
+ */
+export type TaskCategory = 'Work' | 'Personal' | 'Health' | 'None';
+
+/**
  * Task — The full task entity as returned by the backend API.
  * All date fields are ISO 8601 strings (IST-converted by backend).
  */
@@ -35,7 +45,7 @@ export interface Task {
   deadline: string; // ISO 8601 Date string (IST)
   priority: TaskPriority;
   status: TaskStatus;
-  category?: string; // Optional category tag for filtering
+  category: TaskCategory; // Required: strict enum, defaults to 'None' (FR-001)
   userId: string; // Reference ID to the owning user
   createdAt: string;
   updatedAt: string;
@@ -51,7 +61,7 @@ export interface CreateTaskPayload {
   dateTime: string;
   deadline: string;
   priority: TaskPriority;
-  category?: string;
+  category?: TaskCategory; // Optional in form; backend defaults to 'None'
 }
 
 // =============================================================================
@@ -90,14 +100,17 @@ export interface AuthState {
  * TaskState — The shape of the global task slice in the Redux store.
  *
  * - tasks: the complete list of tasks fetched from the backend.
- * - activeCategoryFilter: the currently selected category string for filtering,
+ * - activeCategoryFilter: the currently selected TaskCategory for filtering,
  *   or null when no filter is active (showing all tasks).
+ * - isSmartSortEnabled: when true, the dashboard uses the Weighted Urgency Score
+ *   algorithm instead of standard chronological sort (FR-004, FR-005).
  * - isLoading: true during any async task operation (fetch, create, delete, etc.).
  * - error: holds the last task error message for UI display.
  */
 export interface TaskState {
   tasks: Task[];
-  activeCategoryFilter: string | null;
+  activeCategoryFilter: TaskCategory | null;
+  isSmartSortEnabled: boolean;
   isLoading: boolean;
   error: string | null;
 }

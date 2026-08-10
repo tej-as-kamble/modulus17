@@ -10,6 +10,8 @@
 import { configureStore } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import taskReducer from './slices/taskSlice';
+import toastReducer from './slices/toastSlice';
+import { toastListenerMiddleware } from './toastMiddleware';
 
 /**
  * The centrally configured Redux store.
@@ -17,12 +19,16 @@ import taskReducer from './slices/taskSlice';
  * Reducer map:
  *  - auth:  Manages user session, authentication state, and sync operations.
  *  - tasks: Manages the task list, filtering, sorting, and CRUD operations.
+ *  - toast: Manages the global UI toast notification state (FR-008).
  */
 export const store = configureStore({
   reducer: {
     auth: authReducer,
     tasks: taskReducer,
+    toast: toastReducer,
   },
+  middleware: getDefaultMiddleware =>
+    getDefaultMiddleware().prepend(toastListenerMiddleware.middleware),
 });
 
 /**

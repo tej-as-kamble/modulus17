@@ -20,7 +20,7 @@ import {createAsyncThunk, createSelector, createSlice} from '@reduxjs/toolkit';
 import type {PayloadAction} from '@reduxjs/toolkit';
 import {AppState} from 'react-native';
 import type {AppStateStatus} from 'react-native';
-import type {Task, TaskState, CreateTaskPayload} from '../../types';
+import type {Task, TaskState, CreateTaskPayload, TaskCategory} from '../../types';
 import apiClient from '../../services/apiClient';
 import type {RootState, AppDispatch} from '../index';
 
@@ -31,6 +31,7 @@ import type {RootState, AppDispatch} from '../index';
 const initialState: TaskState = {
   tasks: [],
   activeCategoryFilter: null,
+  isSmartSortEnabled: false, // FR-004: Default to Standard Sort (chronological)
   isLoading: false,
   error: null,
 };
@@ -219,14 +220,29 @@ const taskSlice = createSlice({
   reducers: {
     /**
      * setCategoryFilter
-     * Sets the active category filter for the task list.
-     * Pass a string to filter, or null to show all tasks.
+     * Sets the active category filter for the task list. (FR-003)
+     * Pass a TaskCategory string to filter, or null to show all tasks.
      *
+     * Tasks with category 'None' are only visible when filter is null (i.e., 'All').
      * This is a synchronous, zero-latency operation — no API call is made.
-     * The `selectFilteredTasks` selector recomputes the visible list instantly.
+     * The `selectFilteredAndSortedTasks` selector recomputes the visible list instantly.
      */
-    setCategoryFilter(state, action: PayloadAction<string | null>) {
+    setCategoryFilter(state, action: PayloadAction<TaskCategory | null>) {
       state.activeCategoryFilter = action.payload;
+    },
+
+    /**
+     * setSmartSort
+     * Toggles between Standard Sort (chronological) and Smart Sort (Weighted Urgency Score).
+     * (FR-004, FR-005)
+     *
+     * When enabled, `selectFilteredAndSortedTasks` switches from chronological
+     * ordering to the mathematical urgency formula:
+     *   UrgencyScore = (P * 10) + ((1 / (T_remaining + 0.1)) * 100)
+     * This is a synchronous, zero-latency operation.
+     */
+    setSmartSort(state, action: PayloadAction<boolean>) {
+      state.isSmartSortEnabled = action.payload;
     },
 
     /**
@@ -251,6 +267,7 @@ const taskSlice = createSlice({
     builder.addCase(fetchTasks.rejected, (state, action) => {
       state.isLoading = false;
       state.error = action.payload as string;
+      // EC-01: fetchTasks.rejected — toast fired via toastMiddleware
     });
 
     // --- createTask ---
@@ -276,11 +293,14 @@ const taskSlice = createSlice({
       if (tempIndex !== -1) {
         state.tasks[tempIndex] = action.payload;
       }
+      // Edge Case 2: Task created successfully — show success toast
+      return state;
     });
     builder.addCase(createTask.rejected, (state, action) => {
       // ROLLBACK: Remove the optimistic placeholder that was inserted in `pending`.
       state.tasks = state.tasks.filter(t => !t._id.startsWith('temp-'));
       state.error = action.payload as string;
+      // Edge Case 3: Task creation failed — error is set, toast dispatched from screen
     });
 
     // --- markTaskCompleted ---
@@ -310,6 +330,7 @@ const taskSlice = createSlice({
         task.status = previousStatus; // Restore previous state on failure
       }
       state.error = rejectedPayload?.message || 'Failed to update task.';
+      // Edge Case 4: Status toggle failed — error set for toast display
     });
 
     // --- deleteTask ---
@@ -320,29 +341,35 @@ const taskSlice = createSlice({
     });
     builder.addCase(deleteTask.fulfilled, _state => {
       // The task was already removed optimistically. Nothing more to do.
+      // Edge Case 5: Task deleted — success dispatch handled in DashboardScreen
     });
     builder.addCase(deleteTask.rejected, (state, action) => {
       // ROLLBACK: Re-insert the task that was optimistically removed.
       const {task} = action.meta.arg;
       state.tasks.unshift(task);
       state.error = action.payload as string;
+      // Edge Case 6: Task deletion failed — error set for toast display
     });
   },
 });
 
-export const {setCategoryFilter, clearTaskError} = taskSlice.actions;
+export const {setCategoryFilter, setSmartSort, clearTaskError} = taskSlice.actions;
 export default taskSlice.reducer;
 
 // =============================================================================
 // Memoized Selectors (T016, T019)
 // =============================================================================
 
+// =============================================================================
+// Memoized Selectors (FR-003, FR-004, FR-005, FR-006, FR-009)
+// =============================================================================
+
 /**
- * PRIORITY WEIGHT MAP
- * Used by the sorting algorithm to convert string priorities into numeric weights.
- * Higher weight = higher urgency = sorted first.
+ * PRIORITY WEIGHT MAP (FR-006)
+ * Maps string priority labels to numeric urgency weights for the Smart Sort algorithm.
+ * Higher weight = higher urgency = sorted first (descending in the comparator).
  *
- * Space Complexity: O(1) — constant size map.
+ * Space Complexity: O(1) — constant-size object, initialized once at module load.
  */
 const PRIORITY_WEIGHT: Record<string, number> = {
   High: 3,
@@ -350,112 +377,148 @@ const PRIORITY_WEIGHT: Record<string, number> = {
   Low: 1,
 };
 
-/**
- * selectAllTasks
- * Base selector — extracts the raw task array from the Redux state.
- */
+// --- Base Selectors (input selectors for createSelector) ---
+
+/** selectAllTasks — Extracts the raw task array from the Redux state. */
 const selectAllTasks = (state: RootState): Task[] => state.tasks.tasks;
 
-/**
- * selectCategoryFilter
- * Base selector — extracts the active category filter string.
- */
-const selectCategoryFilter = (state: RootState): string | null =>
-  state.tasks.activeCategoryFilter;
+/** selectCategoryFilter — Extracts the active category filter value. */
+const selectCategoryFilter = (state: RootState) => state.tasks.activeCategoryFilter;
 
 /**
- * selectFilteredTasks
- * CATEGORY FILTERING SELECTOR (FR-011)
- *
- * A memoized selector (via `createSelector`) that returns only the tasks
- * matching the active category filter.
- *
- * - If `activeCategoryFilter` is null, all tasks are returned.
- * - If a filter string is set, only tasks whose `category` matches are returned.
- *
- * Memoization ensures this computation only re-runs when `tasks` or
- * `activeCategoryFilter` actually change, preventing unnecessary re-renders.
- *
- * Time Complexity: O(n) — single pass filter.
- * Space Complexity: O(k) — where k = number of matching tasks.
+ * selectIsSmartSortEnabled — Extracts the Smart Sort toggle state. (FR-004)
+ * When true, tasks are sorted by Weighted Urgency Score.
+ * When false (default), tasks are sorted chronologically.
  */
-export const selectFilteredTasks = createSelector(
-  [selectAllTasks, selectCategoryFilter],
-  (tasks, activeFilter) => {
-    if (!activeFilter) {
-      return tasks; // No filter active: return full list
+const selectIsSmartSortEnabled = (state: RootState): boolean =>
+  state.tasks.isSmartSortEnabled;
+
+/**
+ * selectFilteredAndSortedTasks — MASTER TASK SELECTOR (FR-003, FR-004, FR-005, FR-006)
+ *
+ * A deeply memoized selector (via `createSelector`) that composes two operations:
+ * 1. CATEGORY FILTERING (FR-003): Filters tasks to those matching the active chip.
+ * 2. CONDITIONAL SORTING (FR-004, FR-005): Applies either Standard or Smart Sort.
+ *
+ * MEMOIZATION GUARANTEE:
+ * `createSelector` uses referential equality checking on its input selectors.
+ * The expensive filter + sort computation ONLY re-runs when at least one input
+ * changes: tasks[], activeCategoryFilter, or isSmartSortEnabled.
+ * All other re-renders (unrelated state changes, navigation events, etc.) return
+ * the cached output array, preventing unnecessary list re-renders.
+ *
+ * --- FILTERING ALGORITHM (FR-003) ---
+ * Time Complexity:  O(n) — single-pass Array.prototype.filter.
+ * Space Complexity: O(k) — where k = number of tasks matching the active filter.
+ *
+ * Filter Logic:
+ * - null filter → all tasks visible (including 'None' category tasks).
+ * - 'Work' | 'Personal' | 'Health' → only matching category tasks visible.
+ * - 'None' is intentionally EXCLUDED from dashboard filter chips (FR-002);
+ *   tasks with category 'None' are only visible in the 'All' (null) state.
+ *
+ * --- SORTING ALGORITHMS ---
+ *
+ * STANDARD SORT (isSmartSortEnabled = false, FR-004):
+ *   Primary:   Chronological by `createdAt` descending (newest first).
+ *   Rationale: Familiar, predictable ordering for users who just added tasks.
+ *   Time Complexity: O(n log n) — TimSort via Array.prototype.sort.
+ *
+ * SMART SORT (isSmartSortEnabled = true, FR-004, FR-005, FR-006):
+ *   Primary:   Descending Weighted Urgency Score.
+ *   Formula:   UrgencyScore = (P * 10) + ((1 / (T_remaining + 0.1)) * 100)
+ *
+ *   WHERE:
+ *     P            = Priority weight from PRIORITY_WEIGHT map (High=3, Med=2, Low=1)
+ *     T_remaining  = Hours remaining until deadline (from now to deadline in hours)
+ *                    Calculated as: (deadline_ms - now_ms) / 3_600_000
+ *     + 0.1        = Epsilon guard against division-by-zero when T_remaining = 0
+ *                    (task exactly at its deadline moment)
+ *
+ *   MATHEMATICAL RATIONALE:
+ *     The formula combines two urgency signals:
+ *       PRIORITY COMPONENT: (P * 10) contributes 10, 20, or 30 to the score.
+ *         This ensures a High priority task always has a meaningful base advantage.
+ *       TIME COMPONENT: (1 / (T_remaining + 0.1)) * 100 grows hyperbolically as
+ *         deadline approaches. A task due in 0.1hr contributes ~500 to the score,
+ *         while a task due in 100hrs contributes ~1. The asymptotic growth means
+ *         imminent deadlines dominate the ranking, regardless of priority.
+ *
+ *   EDGE CASE — Missing Deadline:
+ *     If a task has no deadline (null/undefined), T_remaining defaults to Infinity.
+ *     1 / (Infinity + 0.1) = 0, so the time component is 0.
+ *     Only the priority component contributes, effectively ranking these tasks last.
+ *
+ *   Time Complexity: O(n log n) — TimSort via Array.prototype.sort.
+ *   Space Complexity: O(n) — `.slice()` creates a shallow copy to avoid
+ *     mutating the Immer-managed Redux state array.
+ */
+export const selectFilteredAndSortedTasks = createSelector(
+  [selectAllTasks, selectCategoryFilter, selectIsSmartSortEnabled],
+  (tasks, activeFilter, isSmartSort): Task[] => {
+    // ---- STEP 1: CATEGORY FILTERING (FR-003) ----
+    // O(n) single-pass filter.
+    const filtered = activeFilter
+      ? tasks.filter(task => task.category === activeFilter)
+      : tasks; // null filter = show all tasks (including 'None' category)
+
+    // ---- STEP 2: CONDITIONAL SORTING ----
+    // `.slice()` is required because Redux state arrays are immutable in Immer;
+    // calling `.sort()` directly on the state reference would throw in strict mode.
+    const sortable = filtered.slice();
+
+    if (!isSmartSort) {
+      // ---- STANDARD SORT: Chronological (newest createdAt first) ----
+      // Simple, predictable ordering. Falls back gracefully when Smart Sort is off.
+      return sortable.sort((a, b) => {
+        const createdA = new Date(a.createdAt).getTime();
+        const createdB = new Date(b.createdAt).getTime();
+        return createdB - createdA; // Descending: newest first
+      });
     }
-    // Filter tasks whose category matches the active filter (case-insensitive).
-    return tasks.filter(
-      task => task.category?.toLowerCase() === activeFilter.toLowerCase(),
-    );
-  },
-);
 
-/**
- * selectSortedFilteredTasks
- * CUSTOM SORTING ALGORITHM SELECTOR (FR-012)
- *
- * A memoized selector that applies the custom multi-criteria sorting algorithm
- * to the already-filtered task list. The selector is composed on top of
- * `selectFilteredTasks` to benefit from its memoization layer.
- *
- * ALGORITHM DESIGN (Competitive Programming Approach):
- * We implement a multi-key sort comparator. The comparison priority is:
- *
- * KEY 1: Task Status — 'pending' tasks always appear before 'completed' ones.
- *         Rationale: Actionable tasks should be visible first.
- *
- * KEY 2: Deadline — Among same-status tasks, sort by deadline ascending (UTC ms).
- *         Rationale: Tasks about to expire need immediate attention.
- *         This is the primary time-based signal.
- *
- * KEY 3: Priority Weight — Among tasks with equal deadlines, sort by descending
- *         priority (High > Medium > Low).
- *         Rationale: When deadlines collide, urgency determines order.
- *
- * KEY 4: dateTime (Scheduled time) — Among identical deadline+priority tasks,
- *         sort by scheduled time ascending.
- *         Rationale: Deterministic tie-breaker using the earliest scheduled time.
- *
- * Time Complexity:  O(n log n) — JavaScript's native `Array.sort` (TimSort).
- * Space Complexity: O(n) — `slice()` is called to avoid mutating Redux state.
- *
- * NOTE: We call `.slice()` before `.sort()` because Redux state arrays are
- * immutable in Immer-managed contexts; direct mutation would throw in strict mode.
- */
-export const selectSortedFilteredTasks = createSelector(
-  [selectFilteredTasks],
-  (filteredTasks): Task[] => {
-    return filteredTasks.slice().sort((a: Task, b: Task): number => {
-      // KEY 1: Status — pending tasks always appear before completed tasks.
-      if (a.status !== b.status) {
-        // 'pending' < 'completed' alphabetically, but we want pending first (ascending).
-        return a.status === 'pending' ? -1 : 1;
-      }
+    // ---- SMART SORT: Weighted Urgency Score (FR-005, FR-006) ----
+    // Pre-compute the current timestamp once outside the comparator.
+    // This avoids N * log(N) calls to Date.now() inside the sort loop.
+    const nowMs = Date.now();
 
-      // KEY 2: Deadline (ascending) — nearest deadline first.
-      // Parse to milliseconds for a numeric comparison (avoids string sort bugs).
-      const deadlineA = new Date(a.deadline).getTime();
-      const deadlineB = new Date(b.deadline).getTime();
-      if (deadlineA !== deadlineB) {
-        return deadlineA - deadlineB; // Ascending: lower (earlier) deadline wins
-      }
+    return sortable.sort((a, b) => {
+      // --- Compute T_remaining for task A ---
+      // T_remaining = hours from now until the deadline.
+      // If deadline is absent, treat as infinitely far (T = Infinity).
+      const deadlineAMs = a.deadline ? new Date(a.deadline).getTime() : Infinity;
+      const tRemainingA = deadlineAMs === Infinity
+        ? Infinity
+        : (deadlineAMs - nowMs) / 3_600_000; // Convert ms → hours
 
-      // KEY 3: Priority Weight (descending) — highest urgency first.
-      const priorityA = PRIORITY_WEIGHT[a.priority] ?? 0;
-      const priorityB = PRIORITY_WEIGHT[b.priority] ?? 0;
-      if (priorityA !== priorityB) {
-        return priorityB - priorityA; // Descending: higher weight wins
-      }
+      // --- Compute T_remaining for task B ---
+      const deadlineBMs = b.deadline ? new Date(b.deadline).getTime() : Infinity;
+      const tRemainingB = deadlineBMs === Infinity
+        ? Infinity
+        : (deadlineBMs - nowMs) / 3_600_000;
 
-      // KEY 4: dateTime (ascending) — earliest scheduled time as tie-breaker.
-      const dateTimeA = new Date(a.dateTime).getTime();
-      const dateTimeB = new Date(b.dateTime).getTime();
-      return dateTimeA - dateTimeB;
+      // --- Retrieve priority weights (default 0 if priority is unrecognized) ---
+      const pA = PRIORITY_WEIGHT[a.priority] ?? 0;
+      const pB = PRIORITY_WEIGHT[b.priority] ?? 0;
+
+      // --- Compute Weighted Urgency Score for A and B ---
+      // Formula: (P * 10) + ((1 / (T_remaining + 0.1)) * 100)
+      // The epsilon 0.1 guards against division-by-zero when T_remaining = 0.
+      const scoreA = (pA * 10) + ((1 / (tRemainingA + 0.1)) * 100);
+      const scoreB = (pB * 10) + ((1 / (tRemainingB + 0.1)) * 100);
+
+      // Descending sort: higher urgency score comes first.
+      return scoreB - scoreA;
     });
   },
 );
+
+/**
+ * @deprecated Use `selectFilteredAndSortedTasks` instead.
+ * Kept temporarily for backward-compatibility during migration.
+ * Will be removed once DashboardScreen is updated to use the new selector.
+ */
+export const selectSortedFilteredTasks = selectFilteredAndSortedTasks;
 
 // =============================================================================
 // AppState Listener — Foreground Refresh (T018)

@@ -119,7 +119,14 @@ const NeoCard: React.FC<NeoCardProps> = ({ task }) => {
       <View style={styles.footerRow}>
         {/* Deadline */}
         <View style={styles.metaItem}>
-          <Text style={styles.metaIcon}>📅</Text>
+          {/* Calendar icon: small rect with top bar and two rows of dots */}
+          <View style={styles.calendarIcon}>
+            <View style={styles.calendarTop} />
+            <View style={styles.calendarGrid}>
+              <View style={styles.calendarDot} />
+              <View style={styles.calendarDot} />
+            </View>
+          </View>
           <Text style={styles.metaText}>{formatDate(task.deadline)}</Text>
         </View>
 
@@ -218,10 +225,34 @@ const styles = StyleSheet.create({
   metaItem: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 5,
   },
-  metaIcon: {
-    fontSize: FONT_SIZE.sm,
+  // Calendar icon — compact visual replacing the 📅 emoji
+  calendarIcon: {
+    width: 14,
+    height: 14,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 2,
+    overflow: 'hidden',
     marginRight: 4,
+  },
+  calendarTop: {
+    height: 4,
+    backgroundColor: COLORS.textSecondary,
+  },
+  calendarGrid: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 1,
+  },
+  calendarDot: {
+    width: 2,
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: COLORS.textSecondary,
   },
   metaText: {
     fontSize: FONT_SIZE.xs,

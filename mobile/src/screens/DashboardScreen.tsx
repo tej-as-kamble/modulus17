@@ -67,8 +67,9 @@ import {
   markTaskCompleted,
   deleteTask,
   setCategoryFilter,
+  setSmartSort,
   clearTaskError,
-  selectSortedFilteredTasks,
+  selectFilteredAndSortedTasks,
 } from '../store/slices/taskSlice';
 import NeoCard from '../components/NeoCard';
 import {
@@ -82,7 +83,7 @@ import {
 } from '../utils/theme';
 import type { AppDrawerParamList } from '../navigation/AppDrawer';
 import type { AppStackParamList } from '../navigation/AppDrawer';
-import type { Task } from '../types';
+import type { Task, TaskCategory } from '../types';
 
 // =============================================================================
 // Types
@@ -126,7 +127,11 @@ const Toast: React.FC<{ message: string; visible: boolean }> = ({
 
   return (
     <Animated.View style={[styles.toast, { opacity }]}>
-      <Text style={styles.toastText}>⚠️ {message}</Text>
+      <View style={styles.toastIconWrapper}>
+        <View style={styles.toastIconBar} />
+        <View style={styles.toastIconDot} />
+      </View>
+      <Text style={styles.toastText}>{message}</Text>
     </Animated.View>
   );
 };
@@ -135,9 +140,77 @@ const Toast: React.FC<{ message: string; visible: boolean }> = ({
 // Empty State Component
 // =============================================================================
 
+/**
+ * SearchIcon — magnifying glass drawn from primitive Views.
+ */
+const SearchIcon: React.FC = () => (
+  <View style={emptyIconStyles.searchWrapper}>
+    <View style={emptyIconStyles.searchCircle} />
+    <View style={emptyIconStyles.searchHandle} />
+  </View>
+);
+
+/**
+ * NoteIcon — document outline drawn from primitive Views.
+ */
+const NoteIcon: React.FC = () => (
+  <View style={emptyIconStyles.noteOuter}>
+    <View style={emptyIconStyles.noteLine} />
+    <View style={[emptyIconStyles.noteLine, { width: '70%' }]} />
+    <View style={[emptyIconStyles.noteLine, { width: '50%' }]} />
+  </View>
+);
+
+const emptyIconStyles = StyleSheet.create({
+  searchWrapper: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  searchCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 4,
+    borderColor: COLORS.textSecondary,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+  },
+  searchHandle: {
+    width: 4,
+    height: 22,
+    backgroundColor: COLORS.textSecondary,
+    borderRadius: 2,
+    position: 'absolute',
+    bottom: 0,
+    right: 4,
+    transform: [{ rotate: '45deg' }],
+  },
+  noteOuter: {
+    width: 52,
+    height: 64,
+    borderWidth: 3,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 6,
+    padding: 10,
+    justifyContent: 'center',
+    gap: 7,
+    marginBottom: 16,
+  },
+  noteLine: {
+    height: 3,
+    width: '100%' as unknown as number,
+    backgroundColor: COLORS.textSecondary,
+    borderRadius: 2,
+  },
+});
+
 const EmptyState: React.FC<{ hasFilter: boolean }> = ({ hasFilter }) => (
   <View style={styles.emptyContainer}>
-    <Text style={styles.emptyEmoji}>{hasFilter ? '🔍' : '📝'}</Text>
+    {hasFilter ? <SearchIcon /> : <NoteIcon />}
     <Text style={styles.emptyTitle}>
       {hasFilter ? 'No matching tasks' : 'All caught up!'}
     </Text>
@@ -149,14 +222,15 @@ const EmptyState: React.FC<{ hasFilter: boolean }> = ({ hasFilter }) => (
   </View>
 );
 
+
 // =============================================================================
 // Component
 // =============================================================================
 
 const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const dispatch = useAppDispatch();
-  const tasks = useAppSelector(selectSortedFilteredTasks);
-  const { isLoading, error, activeCategoryFilter } = useAppSelector(
+  const tasks = useAppSelector(selectFilteredAndSortedTasks);
+  const { isLoading, error, activeCategoryFilter, isSmartSortEnabled } = useAppSelector(
     state => state.tasks,
   );
 
@@ -355,7 +429,7 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" translucent={false} />
 
       {/* ─── Custom Header ─── */}
       <View style={styles.header}>
@@ -412,18 +486,25 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
       {/* ─── Stacked FABs (T024: Primary, T027: Secondary) ─── */}
       <View style={styles.fabContainer}>
-        {/* Secondary FAB — Filter/Sort (T027) */}
+        {/* Secondary FAB — Filter/Sort (T027) — three filter-lines icon */}
         <TouchableOpacity
           style={[styles.fab, styles.fabSecondary, NEO_SHADOW_RAISED]}
           onPress={openFilterSheet}>
-          <Text style={styles.fabIconSecondary}>⚙️</Text>
+          <View style={styles.filterIconWrapper}>
+            <View style={[styles.filterIconBar, { width: 18 }]} />
+            <View style={[styles.filterIconBar, { width: 13 }]} />
+            <View style={[styles.filterIconBar, { width: 8 }]} />
+          </View>
         </TouchableOpacity>
 
-        {/* Primary FAB — Add Task (T024) */}
+        {/* Primary FAB — Add Task (T024) — plus icon from two View bars */}
         <TouchableOpacity
           style={[styles.fab, styles.fabPrimary, NEO_SHADOW_RAISED]}
           onPress={() => navigation.navigate('AddTask')}>
-          <Text style={styles.fabIconPrimary}>+</Text>
+          <View style={styles.plusIconWrapper}>
+            <View style={styles.plusIconHBar} />
+            <View style={styles.plusIconVBar} />
+          </View>
         </TouchableOpacity>
       </View>
 
@@ -460,6 +541,35 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
 
               <Text style={styles.sheetTitle}>Filter & Sort</Text>
 
+              {/* ── Sort Mode ── */}
+              <Text style={styles.sheetSectionLabel}>Sort By</Text>
+              <View style={styles.sortToggleRow}>
+                {/* Standard Sort chip */}
+                <TouchableOpacity
+                  style={[
+                    styles.sortChip,
+                    !isSmartSortEnabled && styles.sortChipActive,
+                  ]}
+                  onPress={() => dispatch(setSmartSort(false))}>
+                  <Text style={[
+                    styles.sortChipText,
+                    !isSmartSortEnabled && styles.sortChipTextActive,
+                  ]}>Standard</Text>
+                </TouchableOpacity>
+                {/* Smart Sort chip */}
+                <TouchableOpacity
+                  style={[
+                    styles.sortChip,
+                    isSmartSortEnabled && styles.sortChipActive,
+                  ]}
+                  onPress={() => dispatch(setSmartSort(true))}>
+                  <Text style={[
+                    styles.sortChipText,
+                    isSmartSortEnabled && styles.sortChipTextActive,
+                  ]}>Smart Sort</Text>
+                </TouchableOpacity>
+              </View>
+
               {/* ── Category Filters ── */}
               <Text style={styles.sheetSectionLabel}>Filter by Category</Text>
               <ScrollView
@@ -482,6 +592,8 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                   </Text>
                 </TouchableOpacity>
 
+                {/* Category filter chips — 'None' is intentionally excluded per FR-002.
+                    Tasks with category 'None' are only visible in the 'All' state. */}
                 {TASK_CATEGORIES.map(cat => (
                   <TouchableOpacity
                     key={cat}
@@ -489,12 +601,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
                       styles.categoryChip,
                       activeCategoryFilter === cat && styles.categoryChipActive,
                     ]}
-                    onPress={() => dispatch(setCategoryFilter(cat))}>
+                    onPress={() => dispatch(setCategoryFilter(cat as TaskCategory))}>
                     <Text
                       style={[
                         styles.categoryChipText,
                         activeCategoryFilter === cat &&
-                          styles.categoryChipTextActive,
+                        styles.categoryChipTextActive,
                       ]}>
                       {cat}
                     </Text>
@@ -608,10 +720,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     paddingBottom: 80,
   },
-  emptyEmoji: {
-    fontSize: 64,
-    marginBottom: SPACING.md,
-  },
   emptyTitle: {
     fontSize: FONT_SIZE.xl,
     fontWeight: FONT_WEIGHT.bold,
@@ -683,42 +791,89 @@ const styles = StyleSheet.create({
   fabPrimary: {
     width: 60,
     height: 60,
-    backgroundColor: COLORS.primary,
+    backgroundColor: '#4F46E5', // Deeper indigo — more premium feel
   },
   fabSecondary: {
     width: 48,
     height: 48,
     backgroundColor: COLORS.background,
   },
-  fabIconPrimary: {
-    fontSize: 30,
-    color: COLORS.textInverted,
-    lineHeight: 34,
+  // Plus icon for Add Task FAB — two crossing View bars
+  plusIconWrapper: {
+    width: 26,
+    height: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  fabIconSecondary: {
-    fontSize: FONT_SIZE.lg,
+  plusIconHBar: {
+    position: 'absolute',
+    width: 22,
+    height: 3,
+    backgroundColor: COLORS.textPrimary,
+    borderRadius: 2,
+  },
+  plusIconVBar: {
+    position: 'absolute',
+    width: 3,
+    height: 22,
+    backgroundColor: COLORS.textPrimary,
+    borderRadius: 2,
+  },
+  // Filter icon for Filter/Sort FAB — three decreasing horizontal bars
+  filterIconWrapper: {
+    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterIconBar: {
+    height: 2.5,
+    backgroundColor: COLORS.textPrimary,
+    borderRadius: 2,
   },
 
-  // Toast
+  // Toast — error notification positioned at bottom of task list
   toast: {
     position: 'absolute',
     bottom: 110,
     left: SPACING.lg,
     right: SPACING.lg,
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: COLORS.danger,
     borderRadius: BORDER_RADIUS.md,
     padding: SPACING.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.sm,
     elevation: NEO_SHADOW_RAISED.elevation,
     shadowColor: NEO_SHADOW_RAISED.shadowColor,
     shadowOffset: NEO_SHADOW_RAISED.shadowOffset,
     shadowOpacity: NEO_SHADOW_RAISED.shadowOpacity,
     shadowRadius: NEO_SHADOW_RAISED.shadowRadius,
   },
+  toastIconWrapper: {
+    width: 18,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 2,
+    flexShrink: 0,
+  },
+  toastIconBar: {
+    width: 2.5,
+    height: 10,
+    backgroundColor: COLORS.textInverted,
+    borderRadius: 2,
+  },
+  toastIconDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.textInverted,
+  },
   toastText: {
+    flex: 1,
     color: COLORS.textInverted,
     fontSize: FONT_SIZE.sm,
     fontWeight: FONT_WEIGHT.medium,
-    textAlign: 'center',
   },
 
   // Modal overlay
@@ -804,6 +959,35 @@ const styles = StyleSheet.create({
     color: COLORS.textInverted,
     fontSize: FONT_SIZE.md,
     fontWeight: FONT_WEIGHT.semibold,
+  },
+
+  // Sort toggle row (T009)
+  sortToggleRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
+    marginBottom: SPACING.md,
+  },
+  sortChip: {
+    flex: 1,
+    paddingVertical: SPACING.sm,
+    paddingHorizontal: SPACING.sm,
+    borderRadius: BORDER_RADIUS.md,
+    backgroundColor: COLORS.backgroundLight,
+    borderWidth: 1.5,
+    borderColor: COLORS.shadowDark,
+    alignItems: 'center',
+  },
+  sortChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  sortChipText: {
+    fontSize: FONT_SIZE.sm,
+    fontWeight: FONT_WEIGHT.semibold,
+    color: COLORS.textSecondary,
+  },
+  sortChipTextActive: {
+    color: COLORS.textInverted,
   },
 });
 

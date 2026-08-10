@@ -116,7 +116,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" translucent={false} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -137,7 +137,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
             {/* Unified Error Box (FR-007, Edge Case) */}
             {!!error && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>⚠️ {error}</Text>
+                <Text style={styles.errorBoxText}>{error}</Text>
               </View>
             )}
 

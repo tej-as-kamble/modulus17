@@ -148,21 +148,23 @@ export const SPACING = {
 };
 
 // =============================================================================
-// Predefined Task Categories (FR-018)
-// Fixed global list — no user-defined categories in Phase 1.
+// Predefined Task Categories (FR-001, FR-002)
+// Strict Enum — matches the backend Mongoose schema exactly.
+// 'None' is the default category but is EXCLUDED from filter chips (FR-002):
+// tasks with category 'None' only appear when the 'All' filter is active.
 // =============================================================================
 
+/**
+ * TASK_CATEGORIES
+ * The three selectable categories for the category picker (AddTaskScreen)
+ * and the filter chips (DashboardScreen Bottom Sheet).
+ *
+ * IMPORTANT: This list intentionally excludes 'None'. 'None' is the default
+ * assigned at the schema level when no category is selected. Including 'None'
+ * as a chip would confuse the UI contract (FR-002).
+ */
 export const TASK_CATEGORIES: string[] = [
   'Work',
   'Personal',
-  'Urgent',
   'Health',
-  'Finance',
-  'Learning',
-  'Family',
-  'Shopping',
-  'Travel',
-  'Project',
-  'Social',
-  'Other',
 ];

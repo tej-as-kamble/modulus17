@@ -13,6 +13,7 @@
  *  - deadline:    Required Date (stored in UTC)
  *  - priority:    Required enum ('Low' | 'Medium' | 'High'), defaults to 'Medium'
  *  - status:      Required enum ('pending' | 'completed'), defaults to 'pending' (FR-005)
+ *  - category:    Required strict enum ('Work' | 'Personal' | 'Health' | 'None'), defaults to 'None' (FR-001)
  *  - userId:      Required string, indexed for efficient per-user queries (FR-013)
  */
 
@@ -89,13 +90,25 @@ const taskSchema = new mongoose.Schema(
     },
 
     /**
-     * category — Optional category tag for filtering.
-     * Trimmed, max 50 chars.
+     * category — Classification tag for filtering and organization. (FR-001)
+     *
+     * DESIGN DECISION: Using a strict Enum instead of a free-form String.
+     * Rationale: A controlled vocabulary prevents data drift (e.g., 'work' vs 'Work'
+     * vs 'WORK') which would silently break client-side filtering. By enforcing
+     * the enum at the schema level, we guarantee consistent casing and valid values
+     * at the database layer, making the filter selector O(1) per comparison.
+     *
+     * Allowed values: 'Work', 'Personal', 'Health', 'None'
+     * Default: 'None' — tasks without an explicit category are uncategorized.
      */
     category: {
       type: String,
-      trim: true,
-      maxlength: [50, 'Category cannot exceed 50 characters'],
+      required: [true, 'Category is required'],
+      enum: {
+        values: ['Work', 'Personal', 'Health', 'None'],
+        message: "Category must be one of: 'Work', 'Personal', 'Health', 'None'",
+      },
+      default: 'None',
     },
 
     /**

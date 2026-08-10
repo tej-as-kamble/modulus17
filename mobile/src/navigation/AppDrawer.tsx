@@ -125,13 +125,21 @@ const CustomDrawerContent: React.FC<DrawerContentComponentProps> = props => {
             // Close the drawer and stay on the current Dashboard screen
             props.navigation.closeDrawer();
           }}>
-          <Text style={styles.menuIcon}>🏠</Text>
+          {/* Home icon: roof triangle + door rectangle */}
+          <View style={styles.homeIconWrapper}>
+            <View style={styles.homeRoof} />
+            <View style={styles.homeBody} />
+          </View>
           <Text style={styles.menuLabel}>Dashboard</Text>
         </TouchableOpacity>
 
         {/* Settings (Placeholder) */}
         <TouchableOpacity style={[styles.menuItem, styles.menuItemDisabled]}>
-          <Text style={styles.menuIcon}>⚙️</Text>
+          {/* Settings icon: circle with a dot */}
+          <View style={styles.settingsIconWrapper}>
+            <View style={styles.settingsCircle} />
+            <View style={styles.settingsDot} />
+          </View>
           <Text style={[styles.menuLabel, styles.menuLabelDisabled]}>
             Settings
           </Text>
@@ -144,7 +152,11 @@ const CustomDrawerContent: React.FC<DrawerContentComponentProps> = props => {
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        <Text style={styles.logoutIcon}>🚪</Text>
+        {/* Logout arrow icon: horizontal bar + arrow pointing right */}
+        <View style={styles.logoutIconWrapper}>
+          <View style={styles.logoutArrowShaft} />
+          <View style={styles.logoutArrowHead} />
+        </View>
         <Text style={styles.logoutLabel}>Sign Out</Text>
       </TouchableOpacity>
     </DrawerContentScrollView>
@@ -268,9 +280,50 @@ const styles = StyleSheet.create({
   menuItemDisabled: {
     opacity: 0.6,
   },
-  menuIcon: {
-    fontSize: FONT_SIZE.lg,
+  // Home icon styles
+  homeIconWrapper: {
+    width: 22,
+    height: 20,
     marginRight: SPACING.md,
+    alignItems: 'center',
+  },
+  homeRoof: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 11,
+    borderRightWidth: 11,
+    borderBottomWidth: 9,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: COLORS.primary,
+  },
+  homeBody: {
+    width: 14,
+    height: 11,
+    backgroundColor: COLORS.primary,
+    borderRadius: 1,
+  },
+  // Settings icon styles
+  settingsIconWrapper: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.md,
+  },
+  settingsCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 2.5,
+    borderColor: COLORS.textSecondary,
+  },
+  settingsDot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: COLORS.textSecondary,
   },
   menuLabel: {
     flex: 1,
@@ -302,9 +355,29 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.danger + '30',
   },
-  logoutIcon: {
-    fontSize: FONT_SIZE.lg,
+  // Logout icon styles — arrow pointing right
+  logoutIconWrapper: {
+    width: 22,
+    height: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginRight: SPACING.md,
+  },
+  logoutArrowShaft: {
+    width: 14,
+    height: 2.5,
+    backgroundColor: COLORS.danger,
+    borderRadius: 2,
+  },
+  logoutArrowHead: {
+    position: 'absolute',
+    right: 0,
+    width: 8,
+    height: 8,
+    borderTopWidth: 2.5,
+    borderRightWidth: 2.5,
+    borderColor: COLORS.danger,
+    transform: [{ rotate: '45deg' }],
   },
   logoutLabel: {
     fontSize: FONT_SIZE.md,

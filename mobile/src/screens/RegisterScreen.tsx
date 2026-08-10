@@ -122,7 +122,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" translucent={false} />
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
@@ -133,7 +133,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
 
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.appName}>✅ DoList</Text>
+            <Text style={styles.appName}>DoList</Text>
             <Text style={styles.headline}>Create Account</Text>
             <Text style={styles.subheadline}>
               Sign up to start organizing your life
@@ -146,7 +146,7 @@ const RegisterScreen: React.FC<RegisterScreenProps> = ({ navigation }) => {
             {/* Unified Error Box (FR-007) */}
             {!!error && (
               <View style={styles.errorBox}>
-                <Text style={styles.errorBoxText}>⚠️ {error}</Text>
+                <Text style={styles.errorBoxText}>{error}</Text>
               </View>
             )}
 

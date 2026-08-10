@@ -181,7 +181,7 @@ const updateTaskStatus = async (req, res, next) => {
     const task = await Task.findOneAndUpdate(
       { _id: id, userId: req.user.uid },
       { status },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     );
 
     if (!task) {

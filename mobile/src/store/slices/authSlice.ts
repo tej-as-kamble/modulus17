@@ -222,6 +222,7 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
+        // Edge Case 7: Registration success toast
       },
     );
     builder.addCase(registerAndSync.rejected, (state, action) => {
@@ -229,6 +230,7 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.error = action.payload as string;
+      // Edge Case 8: Registration failure toast
     });
 
     // --- loginAndSync ---
@@ -243,6 +245,7 @@ const authSlice = createSlice({
         state.user = action.payload;
         state.isAuthenticated = true;
         state.error = null;
+        // Edge Case 9: Login success toast
       },
     );
     builder.addCase(loginAndSync.rejected, (state, action) => {
@@ -250,6 +253,7 @@ const authSlice = createSlice({
       state.user = null;
       state.isAuthenticated = false;
       state.error = action.payload as string;
+      // Edge Case 10: Login failure toast
     });
 
     // --- logout ---

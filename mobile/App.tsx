@@ -21,7 +21,7 @@
  */
 
 import React, { useEffect } from 'react';
-import { StatusBar } from 'react-native';
+import { StatusBar, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
@@ -30,6 +30,7 @@ import { injectStore } from './src/services/apiClient';
 import { initializeAuthListener } from './src/store/slices/authSlice';
 import { initializeAppStateListener } from './src/store/slices/taskSlice';
 import AuthGuard from './src/components/AuthGuard';
+import GlobalToast from './src/components/GlobalToast';
 import AuthStack from './src/navigation/AuthStack';
 import AppDrawer from './src/navigation/AppDrawer';
 import { COLORS } from './src/utils/theme';
@@ -69,16 +70,33 @@ function AppContent(): React.JSX.Element {
   }, [dispatch]);
 
   return (
-    <>
+    <View style={appStyles.root}>
       <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
-      {/* AuthGuard reads isAuthenticated from Redux and routes accordingly (T014) */}
+      {/* AuthGuard reads isAuthenticated from Redux and routes accordingly */}
       <AuthGuard
         authenticatedChildren={<AppDrawer />}
         unauthenticatedChildren={<AuthStack />}
       />
-    </>
+      {/*
+       * GlobalToast (T015, FR-008)
+       * Rendered at the root level so it overlays ALL screens and navigators.
+       * Driven purely by the Redux `toast` slice — no prop-drilling required.
+       * Positioned absolutely via its own internal StyleSheet (zIndex: 9999).
+       */}
+      <GlobalToast />
+    </View>
   );
 }
+
+// =============================================================================
+// Root styles
+// =============================================================================
+
+const appStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});
 
 // =============================================================================
 // Root App Component

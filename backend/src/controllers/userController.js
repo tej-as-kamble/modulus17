@@ -28,11 +28,11 @@ const syncUser = async (req, res, next) => {
     const { uid, email } = req.user;
 
     // Upsert: find by uid and update email, or insert if no document exists.
-    // `new: true` returns the updated document; `upsert: true` creates if missing.
+    // `returnDocument: 'after'` returns the updated document; `upsert: true` creates if missing.
     const user = await User.findOneAndUpdate(
       { uid },
       { uid, email },
-      { new: true, upsert: true, runValidators: true }
+      { returnDocument: 'after', upsert: true, runValidators: true }
     );
 
     res.status(200).json({

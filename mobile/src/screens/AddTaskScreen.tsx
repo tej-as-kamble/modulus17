@@ -49,7 +49,7 @@ import {
   TASK_CATEGORIES,
 } from '../utils/theme';
 import type { AppStackParamList } from '../navigation/AppDrawer';
-import type { TaskPriority } from '../types';
+import type { TaskPriority, TaskCategory } from '../types';
 
 // =============================================================================
 // Types
@@ -94,7 +94,7 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
     return d;
   });
   const [priority, setPriority] = useState<TaskPriority>('Medium');
-  const [category, setCategory] = useState<string>('');
+  const [category, setCategory] = useState<TaskCategory>('None'); // FR-001: Default to 'None'
 
   // Date/Time Picker visibility state
   const [showDateTimePicker, setShowDateTimePicker] = useState(false);
@@ -196,7 +196,7 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
           dateTime: dateTime.toISOString(),
           deadline: deadline.toISOString(),
           priority,
-          category: category || undefined,
+          category, // Always a valid TaskCategory; defaults to 'None' (FR-001)
         }),
       ).unwrap();
 
@@ -232,7 +232,7 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" translucent={false} />
 
       {/* Custom Header */}
       <View style={styles.header}>
@@ -306,20 +306,20 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
             ))}
           </View>
 
-          {/* Category Selection */}
+            {/* Category Selection */}
           <Text style={styles.sectionLabel}>Category (optional)</Text>
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.categoryScroll}>
-            {/* "None" chip */}
+            {/* "None" chip — represents uncategorized / no category selected */}
             <TouchableOpacity
-              style={[styles.categoryChip, !category && styles.categoryChipActive]}
-              onPress={() => setCategory('')}>
+              style={[styles.categoryChip, category === 'None' && styles.categoryChipActive]}
+              onPress={() => setCategory('None')}>
               <Text
                 style={[
                   styles.categoryChipText,
-                  !category && styles.categoryChipTextActive,
+                  category === 'None' && styles.categoryChipTextActive,
                 ]}>
                 None
               </Text>
@@ -332,7 +332,7 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
                   styles.categoryChip,
                   category === cat && styles.categoryChipActive,
                 ]}
-                onPress={() => setCategory(cat)}>
+                onPress={() => setCategory(cat as TaskCategory)}>
                 <Text
                   style={[
                     styles.categoryChipText,
@@ -349,7 +349,15 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
           <TouchableOpacity
             style={[styles.dateButton, NEO_SHADOW_RAISED]}
             onPress={() => openDateTimePicker('dateTime')}>
-            <Text style={styles.dateIcon}>🗓</Text>
+            {/* Calendar icon */}
+            <View style={styles.dateIconView}>
+              <View style={styles.dateIconTop} />
+              <View style={styles.dateIconGrid}>
+                <View style={styles.dateIconDot} />
+                <View style={styles.dateIconDot} />
+                <View style={styles.dateIconDot} />
+              </View>
+            </View>
             <Text style={styles.dateValue}>{formatDateTime(dateTime)}</Text>
           </TouchableOpacity>
 
@@ -362,7 +370,11 @@ const AddTaskScreen: React.FC<AddTaskScreenProps> = ({ navigation }) => {
               !!deadlineError && styles.dateButtonError,
             ]}
             onPress={() => openDateTimePicker('deadline')}>
-            <Text style={styles.dateIcon}>⏰</Text>
+            {/* Clock icon: circle + hands */}
+            <View style={styles.clockIconView}>
+              <View style={styles.clockHourHand} />
+              <View style={styles.clockMinuteHand} />
+            </View>
             <Text style={styles.dateValue}>{formatDateTime(deadline)}</Text>
           </TouchableOpacity>
           {!!deadlineError && (
@@ -538,9 +550,64 @@ const styles = StyleSheet.create({
     borderLeftColor: COLORS.danger,
     borderWidth: 1,
   },
-  dateIcon: {
-    fontSize: FONT_SIZE.lg,
+  // Calendar icon for Scheduled Date button
+  dateIconView: {
+    width: 18,
+    height: 18,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
+    borderRadius: 3,
+    overflow: 'hidden',
     marginRight: SPACING.sm,
+  },
+  dateIconTop: {
+    height: 5,
+    backgroundColor: COLORS.primary,
+  },
+  dateIconGrid: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-evenly',
+    paddingHorizontal: 1,
+  },
+  dateIconDot: {
+    width: 2.5,
+    height: 2.5,
+    borderRadius: 1.5,
+    backgroundColor: COLORS.textSecondary,
+  },
+  // Clock icon for Deadline button
+  clockIconView: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: COLORS.textSecondary,
+    marginRight: SPACING.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  clockHourHand: {
+    position: 'absolute',
+    width: 1.5,
+    height: 5,
+    backgroundColor: COLORS.textSecondary,
+    borderRadius: 1,
+    bottom: '50%',
+    left: '50%',
+    marginLeft: -0.75,
+  },
+  clockMinuteHand: {
+    position: 'absolute',
+    width: 5,
+    height: 1.5,
+    backgroundColor: COLORS.textSecondary,
+    borderRadius: 1,
+    top: '50%',
+    left: '50%',
+    marginTop: -0.75,
   },
   dateValue: {
     fontSize: FONT_SIZE.md,

@@ -44,7 +44,6 @@ import {
   Animated,
   FlatList,
   Modal,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -52,12 +51,17 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import Swipeable, {
   type SwipeableMethods,
-  SwipeDirection,
 } from 'react-native-gesture-handler/ReanimatedSwipeable';
-import type { SharedValue } from 'react-native-reanimated';
+import Reanimated, {
+  useAnimatedStyle,
+  interpolate,
+  Extrapolation,
+  type SharedValue,
+} from 'react-native-reanimated';
 import type { DrawerNavigationProp } from '@react-navigation/drawer';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { CompositeNavigationProp } from '@react-navigation/native';
@@ -348,53 +352,56 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   // =============================================================================
 
   /**
-   * renderRightAction — Renders the GREEN "Complete" panel (right-swipe).
-   * Uses ReanimatedSwipeable API: progress and dragX are SharedValue<number>.
+   * RightAction — Renders the GREEN "Complete" panel (right-swipe).
    */
-  const renderRightAction = (
-    _progress: SharedValue<number>,
-    _dragX: SharedValue<number>,
-    swipeableMethods: SwipeableMethods,
-    task: Task,
-  ) => {
+  const RightAction = ({ dragX, task, close }: { dragX: SharedValue<number>, task: Task, close: () => void }) => {
+    const style = useAnimatedStyle(() => {
+      // Swiping right-to-left produces negative dragX.
+      // Opacity goes from 0 (at rest) to 1 (when dragged at least 20px).
+      const opacity = interpolate(dragX.value, [0, -20], [0, 1], Extrapolation.CLAMP);
+      return { opacity };
+    });
+
     return (
-      <TouchableOpacity
-        style={styles.swipeRight}
-        onPress={() => {
-          swipeableMethods.close();
-          handleSwipeComplete(task);
-        }}>
-        <View style={styles.swipeActionContent}>
+      <Reanimated.View style={[styles.swipeRight, style]}>
+        <TouchableOpacity
+          style={styles.swipeActionContent}
+          onPress={() => {
+            close();
+            handleSwipeComplete(task);
+          }}>
           <Text style={styles.swipeIcon}>✓</Text>
           <Text style={styles.swipeLabel}>
             {task.status === 'pending' ? 'Complete' : 'Reopen'}
           </Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Reanimated.View>
     );
   };
 
   /**
-   * renderLeftAction — Renders the RED "Delete" panel (left-swipe).
+   * LeftAction — Renders the RED "Delete" panel (left-swipe).
    */
-  const renderLeftAction = (
-    _progress: SharedValue<number>,
-    _dragX: SharedValue<number>,
-    swipeableMethods: SwipeableMethods,
-    task: Task,
-  ) => {
+  const LeftAction = ({ dragX, task, close }: { dragX: SharedValue<number>, task: Task, close: () => void }) => {
+    const style = useAnimatedStyle(() => {
+      // Swiping left-to-right produces positive dragX.
+      // Opacity goes from 0 (at rest) to 1 (when dragged at least 20px).
+      const opacity = interpolate(dragX.value, [0, 20], [0, 1], Extrapolation.CLAMP);
+      return { opacity };
+    });
+
     return (
-      <TouchableOpacity
-        style={styles.swipeLeft}
-        onPress={() => {
-          swipeableMethods.close();
-          handleSwipeDelete(task);
-        }}>
-        <View style={styles.swipeActionContent}>
+      <Reanimated.View style={[styles.swipeLeft, style]}>
+        <TouchableOpacity
+          style={styles.swipeActionContent}
+          onPress={() => {
+            close();
+            handleSwipeDelete(task);
+          }}>
           <Text style={styles.swipeIcon}>🗑</Text>
           <Text style={styles.swipeLabel}>Delete</Text>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Reanimated.View>
     );
   };
 
@@ -405,17 +412,12 @@ const DashboardScreen: React.FC<DashboardScreenProps> = ({ navigation }) => {
   const renderItem = ({ item }: { item: Task }) => (
     <Swipeable
       ref={(ref: SwipeableMethods | null): void => { swipeableRefs.current.set(item._id, ref); }}
-      renderRightActions={(progress: SharedValue<number>, dragX: SharedValue<number>, swipeableMethods: SwipeableMethods) =>
-        renderRightAction(progress, dragX, swipeableMethods, item)
+      renderRightActions={(_progress: SharedValue<number>, dragX: SharedValue<number>, swipeableMethods: SwipeableMethods) =>
+        <RightAction dragX={dragX} task={item} close={() => swipeableMethods.close()} />
       }
-      renderLeftActions={(progress: SharedValue<number>, dragX: SharedValue<number>, swipeableMethods: SwipeableMethods) =>
-        renderLeftAction(progress, dragX, swipeableMethods, item)
+      renderLeftActions={(_progress: SharedValue<number>, dragX: SharedValue<number>, swipeableMethods: SwipeableMethods) =>
+        <LeftAction dragX={dragX} task={item} close={() => swipeableMethods.close()} />
       }
-      onSwipeableOpen={(direction: SwipeDirection) => {
-        // Auto-trigger action when swipe opens fully.
-        if (direction === SwipeDirection.RIGHT) handleSwipeComplete(item);
-        else if (direction === SwipeDirection.LEFT) handleSwipeDelete(item);
-      }}
       friction={2}
       overshootRight={false}
       overshootLeft={false}>
@@ -738,25 +740,24 @@ const styles = StyleSheet.create({
   swipeRight: {
     backgroundColor: COLORS.success,
     justifyContent: 'center',
-    alignItems: 'flex-end',
+    alignItems: 'center',
     marginVertical: SPACING.sm,
-    marginLeft: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    width: 80,
+    width: '25%',
   },
   swipeLeft: {
     backgroundColor: COLORS.danger,
     justifyContent: 'center',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginVertical: SPACING.sm,
-    marginRight: SPACING.md,
     borderRadius: BORDER_RADIUS.lg,
-    width: 80,
+    width: '25%',
   },
   swipeActionContent: {
     alignItems: 'center',
     justifyContent: 'center',
-    width: 80,
+    width: '100%',
+    height: '100%',
   },
   swipeIcon: {
     fontSize: FONT_SIZE.xl,

@@ -25,7 +25,6 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -33,6 +32,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppDispatch, useAppSelector } from '../store/hooks';

@@ -14,7 +14,6 @@ import React, { useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -22,6 +21,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { registerAndSync } from '../store/slices/authSlice';

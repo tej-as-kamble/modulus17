@@ -3,25 +3,36 @@
  * Root application component and bootstrap entry point.
  *
  * Responsibilities:
- *  1. Provides the Redux store to the component tree via `<Provider>`.
- *  2. Injects the store's dispatch function into the apiClient module
+ *  1. Provides the Redux store to the component tree via <Provider>.
+ *  2. Provides the NavigationContainer from @react-navigation/native.
+ *  3. Provides GestureHandlerRootView from react-native-gesture-handler
+ *     (required for Swipeable gesture detection on Android).
+ *  4. Injects the store's dispatch function into the apiClient module
  *     (resolving the circular import pattern for the 401 interceptor).
- *  3. Initializes the Firebase auth listener to restore sessions on launch.
- *  4. Initializes the AppState listener to re-fetch tasks on foreground transitions.
- *  5. Renders the `AuthGuard` to conditionally show auth or app screens.
+ *  5. Initializes the Firebase auth listener to restore sessions on launch.
+ *  6. Initializes the AppState listener to re-fetch tasks on foreground transitions.
+ *  7. Renders the AuthGuard to conditionally render either:
+ *     - AuthStack (unauthenticated users: Login, Register)
+ *     - AppDrawer (authenticated users: Dashboard, AddTask, Drawer)
  *
- * NOTE: Phase 2 (Navigation) will replace the placeholder screen children
- * with actual React Navigation stacks for auth and main app flows.
+ * CONSTITUTION COMPLIANCE:
+ * - All Redux state management flows through the store; App.tsx is presentational.
+ * - Navigation structure uses React Navigation (no third-party UI libraries).
  */
 
 import React, { useEffect } from 'react';
+import { StatusBar } from 'react-native';
+import { NavigationContainer } from '@react-navigation/native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Provider } from 'react-redux';
-import { SafeAreaView, StatusBar, StyleSheet, Text, View } from 'react-native';
 import { store } from './src/store';
 import { injectStore } from './src/services/apiClient';
 import { initializeAuthListener } from './src/store/slices/authSlice';
 import { initializeAppStateListener } from './src/store/slices/taskSlice';
 import AuthGuard from './src/components/AuthGuard';
+import AuthStack from './src/navigation/AuthStack';
+import AppDrawer from './src/navigation/AppDrawer';
+import { COLORS } from './src/utils/theme';
 
 // Inject the Redux store's dispatch into the apiClient immediately at startup.
 // This must happen before any API calls are made so the 401 interceptor
@@ -34,7 +45,7 @@ injectStore(store.dispatch);
 
 /**
  * AppContent
- * The inner component rendered inside the Redux Provider.
+ * The inner component rendered inside the Redux Provider and NavigationContainer.
  * Initializes Firebase auth and AppState listeners on mount.
  */
 function AppContent(): React.JSX.Element {
@@ -57,30 +68,15 @@ function AppContent(): React.JSX.Element {
     };
   }, [dispatch]);
 
-  // Placeholder children — to be replaced with React Navigation stacks in Phase 4.
   return (
-    <AuthGuard
-      authenticatedChildren={
-        <SafeAreaView style={styles.container}>
-          <StatusBar barStyle="light-content" backgroundColor="#0F0F1A" />
-          <View style={styles.content}>
-            <Text style={styles.title}>To-Do App</Text>
-            <Text style={styles.subtitle}>
-              ✅ Data layer initialized. Navigation phase coming next.
-            </Text>
-          </View>
-        </SafeAreaView>
-      }
-      unauthenticatedChildren={
-        <SafeAreaView style={styles.container}>
-          <StatusBar barStyle="light-content" backgroundColor="#0F0F1A" />
-          <View style={styles.content}>
-            <Text style={styles.title}>Welcome</Text>
-            <Text style={styles.subtitle}>Please log in to continue.</Text>
-          </View>
-        </SafeAreaView>
-      }
-    />
+    <>
+      <StatusBar backgroundColor={COLORS.background} barStyle="dark-content" />
+      {/* AuthGuard reads isAuthenticated from Redux and routes accordingly (T014) */}
+      <AuthGuard
+        authenticatedChildren={<AppDrawer />}
+        unauthenticatedChildren={<AuthStack />}
+      />
+    </>
   );
 }
 
@@ -88,36 +84,23 @@ function AppContent(): React.JSX.Element {
 // Root App Component
 // =============================================================================
 
+/**
+ * App
+ * The outermost component wrapping the app with:
+ * - GestureHandlerRootView: REQUIRED by react-native-gesture-handler for swipe gestures.
+ * - Provider: Redux store provider.
+ * - NavigationContainer: Required root for all React Navigation stacks/drawers.
+ */
 function App(): React.JSX.Element {
   return (
-    <Provider store={store}>
-      <AppContent />
-    </Provider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <Provider store={store}>
+        <NavigationContainer>
+          <AppContent />
+        </NavigationContainer>
+      </Provider>
+    </GestureHandlerRootView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0F0F1A',
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#A0A0B0',
-    textAlign: 'center',
-  },
-});
 
 export default App;

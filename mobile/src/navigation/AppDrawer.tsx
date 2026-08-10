@@ -18,6 +18,7 @@ import {
   DrawerContentComponentProps,
 } from '@react-navigation/drawer';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   StyleSheet,
@@ -72,6 +73,7 @@ export type AppStackParamList = {
 const CustomDrawerContent: React.FC<DrawerContentComponentProps> = props => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector(state => state.auth);
+  const insets = useSafeAreaInsets();
 
   /**
    * handleLogout
@@ -97,69 +99,79 @@ const CustomDrawerContent: React.FC<DrawerContentComponentProps> = props => {
   const avatarInitial = user?.email?.charAt(0).toUpperCase() ?? '?';
 
   return (
-    <DrawerContentScrollView
-      {...props}
-      contentContainerStyle={styles.drawerContent}>
+    <View style={styles.drawerContainer}>
+      {/* Transparent Safe Area Spacer — allows dashboard overlay to show through */}
+      <View style={{ height: insets.top, backgroundColor: 'transparent' }} />
 
-      {/* User Profile Section */}
-      <View style={styles.profileSection}>
-        {/* Avatar Circle */}
-        <View style={[styles.avatar, NEO_SHADOW_RAISED]}>
-          <Text style={styles.avatarText}>{avatarInitial}</Text>
-        </View>
-        <Text style={styles.profileEmail} numberOfLines={1}>
-          {user?.email ?? 'Unknown User'}
-        </Text>
-        <Text style={styles.profileSubtext}>Signed in via Firebase</Text>
-      </View>
+      {/* Main Drawer Background */}
+      <View style={styles.drawerInner}>
+        <DrawerContentScrollView
+          {...props}
+          contentContainerStyle={styles.drawerContent}
+          // Prevent DrawerContentScrollView from adding its own safe area padding
+          safeAreaInsets={{ top: 0, bottom: insets.bottom, left: 0, right: 0 }}>
 
-      {/* Divider */}
-      <View style={styles.divider} />
-
-      {/* Navigation Items */}
-      <View style={styles.menuSection}>
-        {/* Dashboard Link */}
-        <TouchableOpacity
-          style={styles.menuItem}
-          onPress={() => {
-            // Close the drawer and stay on the current Dashboard screen
-            props.navigation.closeDrawer();
-          }}>
-          {/* Home icon: roof triangle + door rectangle */}
-          <View style={styles.homeIconWrapper}>
-            <View style={styles.homeRoof} />
-            <View style={styles.homeBody} />
+          {/* User Profile Section */}
+          <View style={styles.profileSection}>
+            {/* Avatar Circle */}
+            <View style={[styles.avatar, NEO_SHADOW_RAISED]}>
+              <Text style={styles.avatarText}>{avatarInitial}</Text>
+            </View>
+            <Text style={styles.profileEmail} numberOfLines={1}>
+              {user?.email ?? 'Unknown User'}
+            </Text>
+            <Text style={styles.profileSubtext}>Signed in via Firebase</Text>
           </View>
-          <Text style={styles.menuLabel}>Dashboard</Text>
-        </TouchableOpacity>
 
-        {/* Settings (Placeholder) */}
-        <TouchableOpacity style={[styles.menuItem, styles.menuItemDisabled]}>
-          {/* Settings icon: circle with a dot */}
-          <View style={styles.settingsIconWrapper}>
-            <View style={styles.settingsCircle} />
-            <View style={styles.settingsDot} />
+          {/* Divider */}
+          <View style={styles.divider} />
+
+          {/* Navigation Items */}
+          <View style={styles.menuSection}>
+            {/* Dashboard Link */}
+            <TouchableOpacity
+              style={styles.menuItem}
+              onPress={() => {
+                // Close the drawer and stay on the current Dashboard screen
+                props.navigation.closeDrawer();
+              }}>
+              {/* Home icon: roof triangle + door rectangle */}
+              <View style={styles.homeIconWrapper}>
+                <View style={styles.homeRoof} />
+                <View style={styles.homeBody} />
+              </View>
+              <Text style={styles.menuLabel}>Dashboard</Text>
+            </TouchableOpacity>
+
+            {/* Settings (Placeholder) */}
+            <TouchableOpacity style={[styles.menuItem, styles.menuItemDisabled]}>
+              {/* Settings icon: circle with a dot */}
+              <View style={styles.settingsIconWrapper}>
+                <View style={styles.settingsCircle} />
+                <View style={styles.settingsDot} />
+              </View>
+              <Text style={[styles.menuLabel, styles.menuLabelDisabled]}>
+                Settings
+              </Text>
+              <Text style={styles.comingSoon}>Soon</Text>
+            </TouchableOpacity>
           </View>
-          <Text style={[styles.menuLabel, styles.menuLabelDisabled]}>
-            Settings
-          </Text>
-          <Text style={styles.comingSoon}>Soon</Text>
-        </TouchableOpacity>
+
+          {/* Spacer */}
+          <View style={styles.spacer} />
+
+          {/* Logout Button */}
+          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+            {/* Logout arrow icon: horizontal bar + arrow pointing right */}
+            <View style={styles.logoutIconWrapper}>
+              <View style={styles.logoutArrowShaft} />
+              <View style={styles.logoutArrowHead} />
+            </View>
+            <Text style={styles.logoutLabel}>Sign Out</Text>
+          </TouchableOpacity>
+        </DrawerContentScrollView>
       </View>
-
-      {/* Spacer */}
-      <View style={styles.spacer} />
-
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-        {/* Logout arrow icon: horizontal bar + arrow pointing right */}
-        <View style={styles.logoutIconWrapper}>
-          <View style={styles.logoutArrowShaft} />
-          <View style={styles.logoutArrowHead} />
-        </View>
-        <Text style={styles.logoutLabel}>Sign Out</Text>
-      </TouchableOpacity>
-    </DrawerContentScrollView>
+    </View>
   );
 };
 
@@ -221,20 +233,28 @@ const AppDrawer: React.FC = () => {
 // =============================================================================
 
 const styles = StyleSheet.create({
-  drawerContent: {
+  drawerContainer: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
+  drawerInner: {
     flex: 1,
     backgroundColor: COLORS.background,
+    borderTopRightRadius: BORDER_RADIUS.lg,
+  },
+  drawerContent: {
+    flexGrow: 1,
     paddingTop: 0,
   },
   drawerPanel: {
-    backgroundColor: COLORS.background,
+    backgroundColor: 'transparent',
     width: '78%',
   },
   profileSection: {
     alignItems: 'center',
     paddingVertical: SPACING.xl,
     paddingHorizontal: SPACING.lg,
-    paddingTop: SPACING.xl + 16, // Extra top padding for notch/status bar
+    paddingTop: SPACING.xl, // Removed extra 16 since we now handle insets cleanly
   },
   avatar: {
     width: 72,

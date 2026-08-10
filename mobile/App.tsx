@@ -24,6 +24,7 @@ import React, { useEffect } from 'react';
 import { StatusBar, View, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Provider } from 'react-redux';
 import { store } from './src/store';
 import { injectStore } from './src/services/apiClient';
@@ -111,13 +112,15 @@ const appStyles = StyleSheet.create({
  */
 function App(): React.JSX.Element {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <Provider store={store}>
-        <NavigationContainer>
-          <AppContent />
-        </NavigationContainer>
-      </Provider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <Provider store={store}>
+          <NavigationContainer>
+            <AppContent />
+          </NavigationContainer>
+        </Provider>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 

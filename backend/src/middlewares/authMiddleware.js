@@ -19,8 +19,7 @@
  *  Authorization: Bearer <firebase-id-token>
  */
 
-const admin = require('firebase-admin');
-
+const { getAuth } = require('firebase-admin/auth');
 /**
  * protect
  * Express middleware that verifies a Firebase ID token from the Authorization header.
@@ -48,7 +47,7 @@ const protect = async (req, res, next) => {
   try {
     // Verify the token cryptographically using Firebase Admin SDK.
     // This confirms the token is genuine, not expired, and issued for this project.
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await getAuth().verifyIdToken(idToken);
 
     // Attach the decoded payload to the request for use in controllers.
     // At minimum, `decodedToken` contains: uid, email, iat, exp, aud, iss
@@ -56,6 +55,7 @@ const protect = async (req, res, next) => {
 
     next();
   } catch (error) {
+    console.error('[authMiddleware] Firebase verifyIdToken error:', error);
     // Token is invalid, expired, or was issued for a different Firebase project.
     const authError = new Error('Unauthorized: Invalid or expired token.');
     authError.status = 401;
